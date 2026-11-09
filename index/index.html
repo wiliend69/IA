@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="es" data-bs-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#070b16">
+  <title>Academia Corporativa 3D · Plataforma de Formación Gamificada</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="./styles.css" rel="stylesheet">
+</head>
+<body>
+  <div id="world"></div>
+
+  <!-- Onboarding & character customization -->
+  <section id="onboarding" class="onboarding" aria-labelledby="ob-title">
+    <div class="container py-4 py-lg-5">
+      <div class="row g-4 justify-content-center align-items-stretch">
+        <div class="col-lg-5">
+          <div class="ob-card h-100 p-4 p-lg-5">
+            <p class="eyebrow">Academia Corporativa 3D</p>
+            <h1 id="ob-title">Crea tu perfil de talento</h1>
+            <p class="text-secondary mb-4">Personaliza tu avatar, elige tu departamento y entra en un campus donde cada lección te hace avanzar.</p>
+
+            <div id="ob-saved" class="alert alert-info d-none py-2 small" role="status">
+              <i class="bi bi-cloud-check-fill" aria-hidden="true"></i> Progreso guardado de <strong id="ob-saved-name"></strong>. Puedes ajustar tu perfil sin perderlo.
+            </div>
+
+            <form id="ob-form" novalidate>
+              <div class="mb-3">
+                <label for="ob-name" class="form-label small">Nombre de usuario</label>
+                <input id="ob-name" class="form-control" maxlength="18" required autocomplete="nickname" placeholder="p. ej. Laura G." aria-describedby="ob-name-error">
+                <div id="ob-name-error" class="invalid-feedback">Introduce un nombre de usuario de al menos 2 caracteres.</div>
+              </div>
+
+              <fieldset class="mb-3">
+                <legend class="form-label small mb-2">Representación del avatar</legend>
+                <div class="btn-group w-100" role="group">
+                  <input type="radio" class="btn-check" name="gender" id="g-m" value="male" checked>
+                  <label class="btn btn-outline-light" for="g-m"><i class="bi bi-person-fill" aria-hidden="true"></i> Masculino</label>
+                  <input type="radio" class="btn-check" name="gender" id="g-f" value="female">
+                  <label class="btn btn-outline-light" for="g-f"><i class="bi bi-person-fill" aria-hidden="true"></i> Femenino</label>
+                </div>
+              </fieldset>
+
+              <fieldset class="mb-3">
+                <legend class="form-label small mb-2">Estilo (ropa, tono de piel y accesorio)</legend>
+                <div class="row g-2" id="preset-grid"></div>
+              </fieldset>
+
+              <div class="mb-2">
+                <label for="ob-dept" class="form-label small">Departamento corporativo</label>
+                <select id="ob-dept" class="form-select"></select>
+              </div>
+              <p class="small text-secondary mb-0">Tu credencial: <span id="ob-badge" class="dept-badge"></span></p>
+
+              <button type="submit" id="ob-submit" class="btn btn-accent btn-lg w-100 mt-4">Entrar a la Academia</button>
+            </form>
+          </div>
+        </div>
+        <div class="col-lg-5">
+          <div class="ob-preview h-100">
+            <canvas id="preview-canvas" aria-label="Vista previa 3D de tu avatar" role="img"></canvas>
+            <div class="ob-preview-meta">
+              <span class="preview-name" id="ob-preview-name">Tu nombre</span>
+              <span class="small text-secondary">Vista previa 3D</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HUD overlay -->
+  <div id="hud" class="hud d-none">
+    <div class="hud-panel" aria-label="Perfil">
+      <div class="d-flex align-items-center gap-2">
+        <span class="hud-avatar" id="hud-avatar" aria-hidden="true"></span>
+        <div class="min-w-0">
+          <div class="hud-name text-truncate" id="hud-name"></div>
+          <span class="dept-badge" id="hud-dept"></span>
+        </div>
+      </div>
+      <div class="mt-3">
+        <div class="d-flex justify-content-between small">
+          <span id="energy-label"><i class="bi bi-lightning-charge-fill text-info" aria-hidden="true"></i> Barra de Energía</span>
+          <span id="hud-energy-text">5 / 5</span>
+        </div>
+        <div class="energy-bar" id="hud-energy" role="meter" aria-labelledby="energy-label" aria-valuemin="0" aria-valuemax="5" aria-valuenow="5"></div>
+      </div>
+      <div class="mt-2 small token-line"><i class="bi bi-coin" aria-hidden="true"></i> <span id="hud-tokens">0</span> Monedas de Talento</div>
+    </div>
+
+    <div class="hud-actions">
+      <button type="button" class="btn btn-hud" id="btn-progress" aria-controls="progressPanel"><i class="bi bi-graph-up" aria-hidden="true"></i><span class="btn-label">Mi Progreso</span><span class="visually-hidden">Mi Progreso</span></button>
+      <button type="button" class="btn btn-hud" id="btn-leader"><i class="bi bi-trophy" aria-hidden="true"></i><span class="btn-label">Clasificación</span><span class="visually-hidden">Clasificación</span></button>
+      <button type="button" class="btn btn-hud" id="btn-help"><i class="bi bi-question-circle" aria-hidden="true"></i><span class="btn-label">Ayuda</span><span class="visually-hidden">Ayuda</span></button>
+    </div>
+
+    <div class="hud-zone" id="hud-zone" aria-live="polite">Hub Central</div>
+    <button type="button" class="hud-prompt d-none" id="hud-prompt"></button>
+
+    <div class="touch-controls" aria-label="Controles táctiles">
+      <div class="dpad">
+        <button type="button" data-dpad="up" aria-label="Mover arriba"><i class="bi bi-caret-up-fill" aria-hidden="true"></i></button>
+        <button type="button" data-dpad="left" aria-label="Mover a la izquierda"><i class="bi bi-caret-left-fill" aria-hidden="true"></i></button>
+        <button type="button" data-dpad="right" aria-label="Mover a la derecha"><i class="bi bi-caret-right-fill" aria-hidden="true"></i></button>
+        <button type="button" data-dpad="down" aria-label="Mover abajo"><i class="bi bi-caret-down-fill" aria-hidden="true"></i></button>
+      </div>
+      <button type="button" class="touch-e" id="touch-interact" aria-label="Interactuar">E</button>
+    </div>
+  </div>
+
+  <!-- Rest zone passive component -->
+  <div id="rest-overlay" class="rest-panel d-none" role="status" aria-live="polite">
+    <div class="breath-circle" aria-hidden="true"></div>
+    <div>
+      <p class="eyebrow mb-1">Zona de Descanso</p>
+      <p class="mb-1 fw-semibold" id="rest-text">Inhala profundamente…</p>
+      <p class="small text-secondary mb-2">Descansar no recarga energía: solo se recupera aprendiendo.</p>
+      <button type="button" class="btn btn-sm btn-outline-light" id="rest-stand"><kbd>E</kbd> Levantarse</button>
+    </div>
+  </div>
+
+  <div id="fade" class="fade-screen" aria-hidden="true"></div>
+  <div id="toasts" class="toast-stack"></div>
+
+  <!-- Academy modal -->
+  <div class="modal fade" id="academyModal" tabindex="-1" aria-labelledby="academyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable modal-fullscreen-sm-down">
+      <div class="modal-content glass">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="academyModalLabel">Academia</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body" id="academy-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARIA onboarding modal -->
+  <div class="modal fade" id="ariaModal" tabindex="-1" aria-labelledby="ariaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content glass">
+        <div class="modal-header gap-3">
+          <span class="aria-avatar" aria-hidden="true"><i class="bi bi-robot"></i></span>
+          <div class="flex-grow-1">
+            <p class="eyebrow mb-0">ARIA · Asistente de formación</p>
+            <h2 class="modal-title fs-5" id="ariaModalLabel"></h2>
+          </div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body" id="aria-body"></div>
+        <div class="modal-footer justify-content-between">
+          <div class="aria-steps" id="aria-steps" role="img"></div>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-light" id="aria-prev">Anterior</button>
+            <button type="button" class="btn btn-accent" id="aria-next">Siguiente</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shop modal -->
+  <div class="modal fade" id="shopModal" tabindex="-1" aria-labelledby="shopModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content glass">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="shopModalLabel"><i class="bi bi-shop me-2 text-warning" aria-hidden="true"></i>Kiosco de Talento</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <span class="token-line"><i class="bi bi-coin" aria-hidden="true"></i> Saldo: <span id="shop-tokens">0</span> Monedas de Talento</span>
+            <span class="small text-secondary"><i class="bi bi-shield-lock" aria-hidden="true"></i> La energía no está a la venta.</span>
+          </div>
+          <div class="row g-3" id="shop-body"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaderboard modal -->
+  <div class="modal fade" id="leaderModal" tabindex="-1" aria-labelledby="leaderModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content glass">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="leaderModalLabel"><i class="bi bi-trophy-fill me-2 text-warning" aria-hidden="true"></i>Tablas de Clasificación</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <div class="nav nav-pills nav-fill mb-3 gap-2" role="tablist">
+            <button type="button" class="nav-link active" role="tab" data-board="tech" aria-selected="true">Clasificación Técnica</button>
+            <button type="button" class="nav-link" role="tab" data-board="comm" aria-selected="false">Líderes de Comunicación</button>
+          </div>
+          <div id="leader-body" role="tabpanel"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help modal -->
+  <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content glass">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="helpModalLabel"><i class="bi bi-question-circle me-2" aria-hidden="true"></i>Ayuda y controles</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <ul class="list-unstyled d-grid gap-2">
+            <li class="info-row"><kbd>W A S D</kbd><span>o flechas: caminar</span></li>
+            <li class="info-row"><i class="bi bi-mouse" aria-hidden="true"></i><span>Clic en el suelo o en un punto de interés: desplazarte</span></li>
+            <li class="info-row"><kbd>E</kbd><span>Interactuar, sentarte o levantarte</span></li>
+          </ul>
+          <h3 class="panel-title mt-4">Mapa del campus</h3>
+          <ul class="list-unstyled d-grid gap-2 small">
+            <li class="info-row"><i class="bi bi-building" style="color:#2dd4bf" aria-hidden="true"></i><span><strong>Hub Central:</strong> ARIA, Zona de Descanso, Kiosco, Clasificación, ascensor y escaleras.</span></li>
+            <li class="info-row"><i class="bi bi-cpu" style="color:#3b82f6" aria-hidden="true"></i><span><strong>Ala derecha:</strong> Temario Full-Stack y Evaluación Día 1.</span></li>
+            <li class="info-row"><i class="bi bi-translate" style="color:#a855f7" aria-hidden="true"></i><span><strong>Ala izquierda:</strong> Cámara de Inglés (norte) y Habilidades Blandas (sur).</span></li>
+            <li class="info-row"><i class="bi bi-controller" style="color:#f59e0b" aria-hidden="true"></i><span><strong>Planta superior:</strong> Ping Pong, Memoria y Lanzamiento de Papel.</span></li>
+          </ul>
+        </div>
+        <div class="modal-footer justify-content-between">
+          <button type="button" class="btn btn-outline-danger btn-sm" id="btn-reset">Reiniciar progreso</button>
+          <button type="button" class="btn btn-accent" data-bs-dismiss="modal">Entendido</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Minigame modal -->
+  <div class="modal fade" id="gameModal" tabindex="-1" aria-labelledby="gameModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable modal-fullscreen-md-down">
+      <div class="modal-content glass">
+        <div class="modal-header">
+          <h2 class="modal-title fs-5" id="gameModalLabel">Minijuego</h2>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body" id="game-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analytics overlay -->
+  <div class="offcanvas offcanvas-end glass" tabindex="-1" id="progressPanel" aria-labelledby="progressPanelLabel" data-bs-backdrop="false" data-bs-scroll="true">
+    <div class="offcanvas-header">
+      <h2 class="offcanvas-title fs-5" id="progressPanelLabel"><i class="bi bi-graph-up me-2 text-info" aria-hidden="true"></i>Mi Progreso</h2>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+    </div>
+    <div class="offcanvas-body" id="progress-body"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+  <script src="./js/state.js"></script>
+  <script src="./js/content.js"></script>
+  <script src="./js/avatar.js"></script>
+  <script src="./js/world.js"></script>
+  <script src="./js/challenges.js"></script>
+  <script src="./js/minigames.js"></script>
+  <script src="./js/ui.js"></script>
+  <script src="./js/main.js"></script>
+</body>
+</html>
